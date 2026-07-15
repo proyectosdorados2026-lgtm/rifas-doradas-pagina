@@ -21,7 +21,7 @@
     <!-- CABECERA -->
     <header class="site-header">
       <div class="header-inner">
-        <a href="#inicio" class="brand" aria-label="Rifas Doradas">
+        <a href="#inicio" data-view="landing" class="brand" aria-label="Rifas Doradas">
           <div class="brand-symbol">
             <img src="./logo.png" alt="" />
           </div>
@@ -32,11 +32,11 @@
         </a>
 
         <nav class="desktop-nav" aria-label="Navegación principal">
-          <a href="#inicio" class="active">Inicio</a>
-          <a href="#premios">La rifa</a>
-          <a href="#premios">Premios</a>
-          <a href="#reserva">Participar</a>
-          <a href="#nosotros">Nosotros</a>
+          <a href="#inicio" data-view="landing" class="active">Inicio</a>
+          <a href="#premios" data-view="landing">La rifa</a>
+          <a href="#premios" data-view="landing">Premios</a>
+          <a href="#reservar" data-view="reservar">Participar</a>
+          <a href="#nosotros" data-view="landing">Nosotros</a>
         </nav>
 
         <div class="header-actions">
@@ -68,11 +68,11 @@
 
     <div class="mobile-menu">
       <nav aria-label="Navegación móvil">
-        <a href="#inicio">Inicio</a>
-        <a href="#premios">La rifa</a>
-        <a href="#premios">Premios</a>
-        <a href="#reserva">Participar</a>
-        <a href="#nosotros">Nosotros</a>
+        <a href="#inicio" data-view="landing">Inicio</a>
+        <a href="#premios" data-view="landing">La rifa</a>
+        <a href="#premios" data-view="landing">Premios</a>
+        <a href="#reservar" data-view="reservar">Participar</a>
+        <a href="#nosotros" data-view="landing">Nosotros</a>
       </nav>
       <a
         href="https://wa.me/573137343527"
@@ -84,6 +84,7 @@
       </a>
     </div>
 
+    <div id="view-landing" class="page-view page-view-landing">
     <!-- HERO -->
     <section class="hero" id="inicio">
       <div class="hero-noise" aria-hidden="true"></div>
@@ -101,7 +102,7 @@
             <span>0KM</span>
           </div>
           <p class="hero-slogan">Tu oportunidad de <strong>ganar</strong></p>
-          <a href="#reserva" class="hero-button">
+          <a href="#reservar" data-view="reservar" class="hero-button">
             Participa ya
             <span class="button-arrow">→</span>
           </a>
@@ -228,7 +229,7 @@
             <strong>26 de septiembre</strong>
           </div>
           <div class="rifa-detalle-item rifa-detalle-cta">
-            <a class="btn-gold cut" href="#reserva">Reservar boleta</a>
+            <a class="btn-gold cut" href="#reservar" data-view="reservar">Reservar boleta</a>
           </div>
         </div>
       </div>
@@ -462,21 +463,27 @@
           <span class="reveal-line">RESERVA</span>
           <span class="reveal-line gold">TU BOLETA</span>
         </h2>
-        <a class="btn-gold cut reveal" href="#reserva">Participar ahora</a>
+        <a class="btn-gold cut reveal" href="#reservar" data-view="reservar">Participar ahora</a>
       </div>
     </section>
 
-    <!-- RESERVA -->
-    <section id="reserva" class="reserva">
+    </div><!-- /view-landing -->
+
+    <!-- APARTADO RESERVA: pantalla propia, no sección de la landing -->
+    <div id="view-reservar" class="page-view page-view-reservar" hidden>
+    <section id="reserva" class="reserva" aria-label="Reservar boleta">
       <img class="watermarks-silueta" src="./nmax-silueta.png" alt="" aria-hidden="true" />
       <div class="reserva-head">
-        <div class="brand-mini reveal">
+        <button type="button" class="link-back reserva-back-home" id="btn-volver-inicio" data-view="landing">
+          ← Volver al inicio
+        </button>
+        <div class="brand-mini">
           <img src="./logo.png" alt="" />
           <img src="./titulo.png" alt="Rifas Doradas" />
         </div>
-        <p class="meta-line reveal">Compra online</p>
-        <h2 class="display-title reveal">Reserva tu boleta</h2>
-        <p class="reserva-lead reveal">
+        <p class="meta-line">Compra online</p>
+        <h2 class="display-title">Reserva tu boleta</h2>
+        <p class="reserva-lead">
           Boleta <strong>$20.000</strong> con doble oportunidad: eliges un número y te
           llevas otro al azar. Usa la grilla o la ruleta. Quita números cuando quieras.
         </p>
@@ -603,6 +610,7 @@
         </div>
       </div>
     </section>
+    </div><!-- /view-reservar -->
 
     <!-- RULETA MODAL -->
     <div id="ruleta-modal" class="ruleta-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ruleta-title">

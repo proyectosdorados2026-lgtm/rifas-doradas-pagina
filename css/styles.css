@@ -864,12 +864,43 @@ code {
   filter: drop-shadow(0 0 20px rgba(185, 133, 13, 0.4));
 }
 
+/* Vistas: landing vs apartado reserva (pantalla completa) */
+.page-view-reservar[hidden],
+body.is-reservar #view-landing,
+body.is-reservar .site-footer {
+  display: none !important;
+}
+
+body.is-reservar #view-reservar {
+  display: block !important;
+}
+
+#view-reservar {
+  min-height: 100vh;
+  background: #070707;
+}
+
+body.is-reservar {
+  background: #070707;
+}
+
+body.is-reservar .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.reserva-back-home {
+  margin-bottom: 1.25rem;
+}
+
 /* Reserva */
 .reserva {
   position: relative;
-  padding: clamp(3.5rem, 8vw, 6rem) clamp(1rem, 3vw, 2rem) 5rem;
+  padding: clamp(4.5rem, 10vw, 7rem) clamp(1rem, 3vw, 2rem) 5rem;
   background: #070707;
   overflow: hidden;
+  min-height: calc(100vh - 4rem);
 }
 
 .watermarks-silueta {

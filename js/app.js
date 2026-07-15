@@ -809,7 +809,92 @@
   });
 
   // Prefer local hero if stock URL fails — try nmax after load
+  const viewLanding = $('view-landing') || document.getElementById('view-landing');
+  const viewReservar = $('view-reservar') || document.getElementById('view-reservar');
+
+  function getCurrentView() {
+    return document.body.classList.contains('is-reservar') ? 'reservar' : 'landing';
+  }
+
+  function setNavActive(view, hash) {
+    document.querySelectorAll('.desktop-nav a, .mobile-menu nav a').forEach((a) => {
+      const v = a.getAttribute('data-view');
+      const href = a.getAttribute('href') || '';
+      let active = false;
+      if (view === 'reservar') {
+        active = v === 'reservar';
+      } else if (hash && href === hash) {
+        active = true;
+      } else if (!hash && (href === '#inicio' || v === 'landing') && href === '#inicio') {
+        active = true;
+      }
+      a.classList.toggle('active', active);
+    });
+  }
+
+  function openReservar({ push = true } = {}) {
+    document.body.classList.add('is-reservar');
+    if (viewReservar) viewReservar.hidden = false;
+    window.scrollTo(0, 0);
+    setNavActive('reservar');
+    if (push && location.hash !== '#reservar') {
+      history.pushState({ view: 'reservar' }, '', '#reservar');
+    }
+  }
+
+  function openLanding({ push = true, hash = '#inicio' } = {}) {
+    document.body.classList.remove('is-reservar');
+    if (viewReservar) viewReservar.hidden = true;
+    setNavActive('landing', hash);
+    if (push) {
+      const next = hash || '#inicio';
+      if (location.hash !== next) history.pushState({ view: 'landing' }, '', next);
+    }
+    if (hash && hash !== '#reservar') {
+      const el = document.querySelector(hash);
+      if (el) {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function applyViewFromHash() {
+    const hash = location.hash || '#inicio';
+    if (hash === '#reservar' || hash === '#reserva') {
+      openReservar({ push: false });
+      return;
+    }
+    openLanding({ push: false, hash });
+  }
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-view]');
+    if (!link) return;
+    const view = link.getAttribute('data-view');
+    const href = link.getAttribute('href') || '';
+    if (view === 'reservar') {
+      e.preventDefault();
+      openReservar({ push: true });
+      return;
+    }
+    if (view === 'landing') {
+      e.preventDefault();
+      const hash = href.startsWith('#') ? href : '#inicio';
+      openLanding({ push: true, hash });
+    }
+  });
+
+  window.addEventListener('popstate', () => applyViewFromHash());
+  window.addEventListener('hashchange', () => applyViewFromHash());
+
   renderMediosPagoEnPagina();
   showPaso('catalogo');
+  applyViewFromHash();
   cargarRifas();
 })();
