@@ -38,7 +38,7 @@
     return CONFIG.PAGO || {
       cuentaBancolombia: '58332955789',
       llave: '@mauricio5796',
-      titular: 'Rifas Doradas',
+      titular: 'Sueños Dorados',
     };
   }
 
@@ -48,7 +48,7 @@
     const wa = getWhatsAppWaMe();
     const waDisplay = getWhatsAppDisplay();
     return `
-      <strong>Cómo pagar · Rifas Doradas</strong>
+      <strong>Cómo pagar · Sueños Dorados</strong>
       <p class="pago-destacado">💰 Llave Bre-B: ${escapeHtml(pago.llave)}</p>
       <p class="pago-destacado">💰 Bancolombia ahorros: ${escapeHtml(pago.cuentaBancolombia)}</p>
       <p>A nombre de: ${escapeHtml(pago.titular)}</p>
@@ -67,7 +67,7 @@
 
   function buildWhatsAppReservaUrl(nombre, telefono, pachas, total) {
     const msg =
-      `Hola, soy ${nombre}. Confirmé mi reserva en *Rifas Doradas*.\n` +
+      `Hola, soy ${nombre}. Confirmé mi reserva en *Sueños Dorados*.\n` +
       `Tel: ${telefono}\n` +
       `Pachas: ${pachas}\n` +
       `Total: ${total}\n\n` +
@@ -155,7 +155,7 @@
     }
   }
 
-  // ── Rifas ──────────────────────────────────────────────
+  // ── Proyectos ──────────────────────────────────────────
   async function cargarRifas() {
     const grid = $('rifas-grid');
     const loading = $('loading-rifas');

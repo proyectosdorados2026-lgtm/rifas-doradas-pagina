@@ -1,23 +1,29 @@
-# Rifas Doradas — Página pública
+# Sueños Dorados — Página pública
 
 Landing estática de reserva online (Proyecto NMAX). Lista para desplegar en **Netlify**.
 
 ## Despliegue en Netlify
 
-1. Conecta este repositorio en [Netlify](https://app.netlify.com/).
-2. Configuración sugerida:
-   - **Build command:** (vacío o `exit 0`)
+1. En [Netlify](https://app.netlify.com/) → **Add new site** → **Import an existing project**.
+2. Conecta el repo: `https://github.com/geiner28/sue-os-dorados-pagina`
+3. Configuración:
+   - **Build command:** `exit 0` (o déjalo vacío; ya está en `netlify.toml`)
    - **Publish directory:** `.` (raíz del repo)
-3. Deploy. La home es `index.html`.
+4. Deploy. La home es `index.html`.
 
-También puedes arrastrar la carpeta del repo a [Netlify Drop](https://app.netlify.com/drop).
+También puedes arrastrar esta carpeta a [Netlify Drop](https://app.netlify.com/drop).
+
+### Dominio personalizado
+
+Si usas `sueñosdorados.com.co`, en Netlify → Domain management agrega el dominio.
+Los QR con ñ se resuelven con punycode en el backend (`xn--sueosdorados-chb.com.co`).
 
 ## API
 
-La reserva apunta a Railway en `js/config.js`:
+La reserva apunta al backend en `js/config.js`:
 
 - `API_URL` — backend `/api`
-- `API_KEY` — clave pública de ventas online
+- `API_KEY` — clave pública de ventas online (`PUBLIC_API_KEY` del backend)
 
 ## Estructura
 

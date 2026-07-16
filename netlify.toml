@@ -1,4 +1,4 @@
-# Rifas Doradas — landing estática (Netlify)
+# Sueños Dorados — landing estática (Netlify)
 [build]
   publish = "."
   command = "exit 0"

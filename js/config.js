@@ -9,13 +9,13 @@ window.RESERVA_CONFIG = {
     premio: './assets/nmax/web/DSC00553.jpg',
     rifaFallback: './assets/nmax/web/DSC00558.jpg',
   },
-  /** WhatsApp oficial Rifas Doradas */
+  /** WhatsApp oficial Sueños Dorados */
   WHATSAPP_DISPLAY: '313 734 3527',
   WHATSAPP_WA_ME: '573137343527',
   /** Medios de pago */
   PAGO: {
     cuentaBancolombia: '58332955789',
     llave: '@mauricio5796',
-    titular: 'Rifas Doradas',
+    titular: 'Sueños Dorados',
   },
 };
