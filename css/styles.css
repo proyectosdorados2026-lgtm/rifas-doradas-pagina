@@ -1679,6 +1679,29 @@ body.is-reservar .site-header {
   color: var(--ink);
 }
 
+.wompi-pay-box {
+  margin: 1.1rem auto 0.5rem;
+  max-width: 420px;
+  text-align: center;
+}
+
+.wompi-pay-box .btn-gold {
+  width: 100%;
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+
+.wompi-pay-hint {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.wompi-pay-box.hidden {
+  display: none;
+}
+
 .pago-box,
 .footer-pago {
   text-align: left;

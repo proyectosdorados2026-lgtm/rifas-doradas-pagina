@@ -74,23 +74,40 @@
       <button type="button" class="btn-gold cut" id="btn-descargar-todas">Descargar todas</button>
     `;
 
+    const pagadas = [];
+    const pendientes = [];
+
     container.innerHTML = rifas
       .map((rifa) => {
         const boletasHtml = rifa.boletas
           .map((b) => {
+            const puedeDescargar = puedeDescargarBoleta(b);
+            if (puedeDescargar) pagadas.push(b);
+            else pendientes.push(b);
+
             const ticket = T.buildTicketHtml({
               boleta: b,
               cliente,
               rifaNombre: rifa.rifa_nombre,
               precio: rifa.precio_boleta,
             });
+            const estado = String(b.estado || '').toUpperCase();
             return `
               <div class="boleta-item" data-boleta-id="${b.id}">
                 <div class="boleta-ticket-scale" id="wrap-${b.id}">${ticket}</div>
                 <div class="boleta-actions">
-                  <button type="button" class="btn-gold cut btn-dl" data-id="${b.id}" data-num="${b.numero}">
-                    Descargar PNG
-                  </button>
+                  ${
+                    puedeDescargar
+                      ? `<button type="button" class="btn-gold cut btn-dl" data-id="${b.id}" data-num="${b.numero}">
+                          Descargar PNG
+                        </button>`
+                      : `<button type="button" class="btn-ghost cut" disabled title="Disponible al pagar">
+                          ${estado === 'RESERVADA' || estado === 'ABONADA' ? 'Pendiente de pago' : escapeHtml(estado || 'Sin descarga')}
+                        </button>
+                        <a class="btn-gold cut" href="./index.html#reservar" style="text-decoration:none;display:inline-flex;align-items:center;padding:0.55rem 0.9rem">
+                          Pagar / reservar
+                        </a>`
+                  }
                 </div>
               </div>`;
           })
@@ -109,7 +126,26 @@
       })
       .join('');
 
-    $('btn-descargar-todas')?.addEventListener('click', () => descargarTodas(cliente, rifas));
+    const btnAll = $('btn-descargar-todas');
+    if (btnAll) {
+      if (!pagadas.length) {
+        btnAll.disabled = true;
+        btnAll.textContent = 'Sin boletas pagadas';
+      } else {
+        btnAll.disabled = false;
+        btnAll.textContent = `Descargar pagadas (${pagadas.length})`;
+        btnAll.addEventListener('click', () =>
+          descargarTodas(
+            cliente,
+            rifas.map((r) => ({
+              ...r,
+              boletas: r.boletas.filter((b) => puedeDescargarBoleta(b)),
+            }))
+          )
+        );
+      }
+    }
+
     container.querySelectorAll('.btn-dl').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
@@ -132,6 +168,14 @@
         }
       });
     });
+  }
+
+  function puedeDescargarBoleta(b) {
+    const estado = String(b.estado || '').toUpperCase();
+    if (estado === 'PAGADA' || estado === 'VENDIDA' || estado === 'CON_PAGO') return true;
+    const saldo = Number(b.saldo_pendiente);
+    if (Number.isFinite(saldo) && saldo <= 0 && Number(b.total_pagado) > 0) return true;
+    return false;
   }
 
   async function descargarTodas(cliente, rifas) {

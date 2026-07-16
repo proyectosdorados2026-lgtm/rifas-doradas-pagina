@@ -48,13 +48,78 @@
     const wa = getWhatsAppWaMe();
     const waDisplay = getWhatsAppDisplay();
     return `
-      <strong>Cómo pagar · Sueños Dorados</strong>
+      <strong>También puedes pagar por transferencia</strong>
       <p class="pago-destacado">💰 Llave Bre-B: ${escapeHtml(pago.llave)}</p>
       <p class="pago-destacado">💰 Bancolombia ahorros: ${escapeHtml(pago.cuentaBancolombia)}</p>
       <p>A nombre de: ${escapeHtml(pago.titular)}</p>
       <p>📲 WhatsApp: <a href="https://wa.me/${wa}" target="_blank" rel="noopener">${escapeHtml(waDisplay)}</a></p>
-      <p>Cuando pagues, envía el comprobante por WhatsApp ✅</p>
+      <p>Si pagas por transferencia, envía el comprobante por WhatsApp ✅</p>
     `;
+  }
+
+  async function isWompiReady() {
+    if (CONFIG.WOMPI_ENABLED === false) return false;
+    try {
+      const res = await api('/ventas-online/pagos/wompi/status');
+      return Boolean(res?.data?.enabled);
+    } catch {
+      return false;
+    }
+  }
+
+  async function setupWompiPayButton(reservaToken, montoTotal) {
+    const btn = $('btn-pagar-wompi');
+    const box = $('exito-wompi');
+    const hint = $('wompi-pay-hint');
+    if (!btn || !box) return;
+
+    const ready = await isWompiReady();
+    if (!ready || !reservaToken) {
+      box.classList.add('hidden');
+      btn.disabled = true;
+      return;
+    }
+
+    box.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = `Pagar ${formatMoney(montoTotal)} con Wompi`;
+    if (hint) {
+      hint.textContent =
+        'Pago seguro en línea. Al confirmarse, tu boleta queda PAGADA y podrás descargarla.';
+    }
+
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Preparando pago…';
+      try {
+        const res = await api('/ventas-online/pagos/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ reserva_token: reservaToken }),
+        });
+        const checkout = res.data;
+        if (!checkout?.signature || !window.WompiCheckout) {
+          throw new Error('No se pudo preparar el pago Wompi');
+        }
+        // Guardar token para la pantalla de resultado
+        try {
+          sessionStorage.setItem(
+            'sd_last_pago',
+            JSON.stringify({
+              token: reservaToken,
+              reference: checkout.reference,
+              amount: checkout.amount,
+            })
+          );
+        } catch (_) {
+          /* ignore */
+        }
+        window.WompiCheckout.submitWebCheckout(checkout);
+      } catch (err) {
+        toast(err.message || 'Error al iniciar pago', 'error');
+        btn.disabled = false;
+        btn.textContent = `Pagar ${formatMoney(montoTotal)} con Wompi`;
+      }
+    };
   }
 
   function renderMediosPagoEnPagina() {
@@ -725,24 +790,28 @@
         body: JSON.stringify(payload),
       });
 
-      state.reservaToken = null;
+      const tokenAntes = state.reservaToken;
       stopTimer();
 
       const data = res.data || {};
+      // Preferir token devuelto por API (mismo del bloqueo)
+      const reservaTokenFinal = data.reserva_token || tokenAntes;
+      state.reservaToken = null;
+
       const selectedLocal = state.boletas.filter((b) => state.selectedIds.has(b.id));
       const nums =
         formatPachasLabel(data.boletas) ||
         formatPachasLabel(selectedLocal) ||
         '—';
 
-      state.lastReserva = { ...payload, data, nums };
+      state.lastReserva = { ...payload, data, nums, reservaToken: reservaTokenFinal };
 
       $('exito-detalle').innerHTML = `
         <p><strong>Cliente:</strong> ${escapeHtml(payload.cliente.nombre)}</p>
         <p><strong>Teléfono:</strong> ${escapeHtml(payload.cliente.telefono)}</p>
         <p><strong>Pachas:</strong> ${escapeHtml(nums || '—')}</p>
         <p><strong>Total:</strong> ${formatMoney(data.monto_total || 0)}</p>
-        <p>Estado: pendiente de pago. Envíanos el comprobante por WhatsApp para confirmar.</p>
+        <p>Estado: pendiente de pago. Paga con Wompi para descargar al instante.</p>
       `;
 
       const exitoPago = $('exito-pago');
@@ -758,7 +827,13 @@
         );
       }
 
+      const misBoletas = $('btn-ir-mis-boletas');
+      if (misBoletas && payload.cliente.identificacion) {
+        misBoletas.href = `./mis-boletas.html?cedula=${encodeURIComponent(payload.cliente.identificacion)}`;
+      }
+
       showPaso('exito');
+      await setupWompiPayButton(reservaTokenFinal, data.monto_total || 0);
       toast('Reserva creada correctamente', 'ok');
       form.reset();
     } catch (err) {
