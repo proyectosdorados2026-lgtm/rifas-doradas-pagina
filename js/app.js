@@ -97,10 +97,25 @@
   }
 
   function formatPair(boleta) {
-    const nums = Array.isArray(boleta.numeros) && boleta.numeros.length
-      ? boleta.numeros
-      : [boleta.numero];
+    if (boleta == null) return '—';
+    if (typeof boleta === 'number' || typeof boleta === 'string') {
+      const n = Number(boleta);
+      return Number.isFinite(n) ? `#${padNum(n)}` : '—';
+    }
+    const nums =
+      Array.isArray(boleta.numeros) && boleta.numeros.length
+        ? boleta.numeros
+        : boleta.numero != null
+          ? [boleta.numero]
+          : [];
+    if (!nums.length) return '—';
     return nums.map((x) => `#${padNum(x)}`).join(' · ');
+  }
+
+  function formatPachasLabel(boletas) {
+    const list = Array.isArray(boletas) ? boletas : [];
+    if (!list.length) return '';
+    return list.map((b) => `Pacha ${formatPair(b)}`).join(', ');
   }
 
   function escapeHtml(str) {
@@ -197,10 +212,10 @@
             <div class="featured-brand"><img src="./logo.png" alt="" /><img src="./titulo.png" alt="" /></div>
             ${r.doble_oportunidad ? '<span class="badge-doble">Doble oportunidad</span>' : ''}
             <h3>${escapeHtml(r.nombre || 'Proyecto NMAX')}</h3>
-            <p>${escapeHtml(r.descripcion || r.premio_principal || 'Boleta $20.000 · Doble oportunidad · NMAX 2026 0 km + iPhone 17 Pro Max + anticipado $5.000.000')}</p>
+            <p>${escapeHtml(r.descripcion || r.premio_principal || 'Boleta $20.000 · Doble oportunidad · NMAX 2027 0 km + iPhone 17 Pro Max + anticipado $5.000.000')}</p>
             <ul class="featured-meta">
               <li><span>Precio boleta</span><strong>${formatMoney(r.precio_boleta)}</strong></li>
-              <li><span>Premio mayor</span><strong>26 sep · NMAX 2026</strong></li>
+              <li><span>Premio mayor</span><strong>26 sep · NMAX 2027</strong></li>
               <li><span>Anticipado</span><strong>5 sep · $5.000.000</strong></li>
               <li><span>Disponibles</span><strong>${Number(r.boletas_disponibles || 0).toLocaleString('es-CO')}</strong></li>
             </ul>
@@ -714,9 +729,11 @@
       stopTimer();
 
       const data = res.data || {};
-      const nums = (data.boletas || [])
-        .map((b) => `Pacha ${formatPair({ numero: b.numero, numeros: b.numeros || [b.numero] })}`)
-        .join(', ');
+      const selectedLocal = state.boletas.filter((b) => state.selectedIds.has(b.id));
+      const nums =
+        formatPachasLabel(data.boletas) ||
+        formatPachasLabel(selectedLocal) ||
+        '—';
 
       state.lastReserva = { ...payload, data, nums };
 

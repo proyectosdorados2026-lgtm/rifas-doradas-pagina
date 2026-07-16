@@ -3,6 +3,22 @@
   publish = "."
   command = "exit 0"
 
+# QR → /verificar/:hash  |  Mis boletas → /mis-boletas
+[[redirects]]
+  from = "/verificar/*"
+  to = "/verificar.html"
+  status = 200
+
+[[redirects]]
+  from = "/mis-boletas"
+  to = "/mis-boletas.html"
+  status = 200
+
+[[redirects]]
+  from = "/mis-boletas/*"
+  to = "/mis-boletas.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

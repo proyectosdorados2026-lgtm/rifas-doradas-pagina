@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Verificar boleta | Sueños Dorados</title>
+    <meta name="description" content="Consulta el estado de tu boleta escaneando el código QR." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <link rel="stylesheet" href="./css/boletas.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="./index.html" class="brand" aria-label="Sueños Dorados">
+          <div class="brand-symbol">
+            <img src="./logo.png" alt="" />
+          </div>
+          <div class="brand-text">
+            <strong>SUEÑOS</strong>
+            <small>DORADOS</small>
+          </div>
+        </a>
+        <div class="header-actions">
+          <a href="./mis-boletas.html" class="header-contact">Mis boletas</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <div class="page-card">
+        <div class="page-hero">
+          <img class="brand-logo" src="./logo.png" alt="" />
+          <h1>Verificación</h1>
+          <p>Estado oficial de la boleta vinculada al código QR.</p>
+        </div>
+
+        <div id="verify-root" class="verify-card">
+          <div class="status-box" id="verify-status">Verificando boleta…</div>
+        </div>
+
+        <p style="text-align: center">
+          <a class="back-home" href="./index.html">← Volver al inicio</a>
+        </p>
+      </div>
+    </main>
+
+    <script src="./js/config.js"></script>
+    <script src="./js/verificar.js"></script>
+  </body>
+</html>
