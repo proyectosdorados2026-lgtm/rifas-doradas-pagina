@@ -135,7 +135,17 @@
         } catch (_) {
           /* ignore */
         }
-        window.WompiCheckout.submitWebCheckout(checkout);
+        window.WompiCheckout.openCheckout(checkout, (result) => {
+          const tx = result?.transaction;
+          if (tx?.id) {
+            const qs = new URLSearchParams({
+              token: reservaToken,
+              reference: checkout.reference || '',
+              id: tx.id,
+            });
+            window.location.href = `./pago-resultado.html?${qs.toString()}`;
+          }
+        });
       } catch (err) {
         toast(err.message || 'Error al iniciar pago', 'error');
         btn.disabled = false;
