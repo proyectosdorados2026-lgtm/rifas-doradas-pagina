@@ -8,13 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./css/styles.css" />
+    <link rel="stylesheet" href="./css/hero.css" />
     <link rel="stylesheet" href="./css/boletas.css" />
   </head>
-  <body>
+  <body class="subpage">
     <header class="site-header">
       <div class="header-inner">
         <a href="./index.html" class="brand" aria-label="Sueños Dorados">
@@ -26,11 +27,15 @@
             <small>DORADOS</small>
           </div>
         </a>
-        <nav class="desktop-nav" aria-label="Navegación">
+
+        <nav class="desktop-nav" aria-label="Navegación principal">
           <a href="./index.html">Inicio</a>
+          <a href="./index.html#premios">Premios</a>
           <a href="./index.html#reservar">Participar</a>
           <a href="./mis-boletas.html" class="active">Mis boletas</a>
+          <a href="./index.html#nosotros">Nosotros</a>
         </nav>
+
         <div class="header-actions">
           <a
             href="https://wa.me/573137343527"
@@ -41,21 +46,51 @@
             <span class="contact-icon">●</span>
             313 734 3527
           </a>
+          <button
+            class="mobile-menu-button"
+            type="button"
+            aria-label="Abrir menú"
+            aria-expanded="false"
+          >
+            <span></span>
+            <span></span>
+          </button>
         </div>
       </div>
     </header>
 
+    <div class="mobile-menu">
+      <nav aria-label="Navegación móvil">
+        <a href="./index.html">Inicio</a>
+        <a href="./index.html#premios">Premios</a>
+        <a href="./index.html#reservar">Participar</a>
+        <a href="./mis-boletas.html" class="active">Mis boletas</a>
+        <a href="./index.html#nosotros">Nosotros</a>
+      </nav>
+      <a
+        href="https://wa.me/573137343527"
+        class="mobile-contact"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        WhatsApp 313 734 3527
+      </a>
+    </div>
+
     <main class="page-shell">
       <div class="page-card">
         <div class="page-hero">
-          <img class="brand-logo" src="./logo.png" alt="" />
+          <p class="page-kicker">Consulta oficial</p>
           <h1>Mis boletas</h1>
-          <p>Ingresa tu cédula para ver y descargar tus pachas, igual que en el sistema.</p>
+          <p>
+            Escribe tu cédula para ver tus pachas y descargarlas como en el sistema.
+          </p>
         </div>
 
-        <form id="form-cedula" class="lookup-form" autocomplete="off">
-          <label>
-            Cédula / identificación
+        <form id="form-cedula" class="lookup-panel" autocomplete="off">
+          <div class="lookup-panel__glow" aria-hidden="true"></div>
+          <label class="lookup-field">
+            <span>Cédula / identificación</span>
             <input
               id="input-cedula"
               name="cedula"
@@ -63,9 +98,13 @@
               inputmode="numeric"
               maxlength="30"
               placeholder="Ej. 1001234567"
+              autofocus
             />
           </label>
-          <button type="submit" class="btn-gold cut" id="btn-buscar">Consultar</button>
+          <button type="submit" class="btn-gold cut lookup-submit" id="btn-buscar">
+            Consultar pachas
+          </button>
+          <p class="lookup-hint">Solo aparecen boletas reservadas, abonadas o pagadas.</p>
         </form>
 
         <div id="status" class="status-box hidden" role="status"></div>
@@ -75,8 +114,9 @@
           <div id="rifas-container"></div>
         </div>
 
-        <p style="text-align: center">
+        <p class="page-footer-link">
           <a class="back-home" href="./index.html">← Volver al inicio</a>
+          <a class="back-home" href="./index.html#reservar">Reservar pachas →</a>
         </p>
       </div>
     </main>
@@ -87,5 +127,6 @@
     <script src="./js/config.js"></script>
     <script src="./js/boleta-ticket.js"></script>
     <script src="./js/mis-boletas.js"></script>
+    <script src="./js/hero.js"></script>
   </body>
 </html>
