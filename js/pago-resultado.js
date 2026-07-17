@@ -5,9 +5,16 @@
 
   const params = new URLSearchParams(location.search);
   let token = params.get('token') || '';
-  let reference = params.get('reference') || params.get('id') || '';
+  // Wompi redirect: ?id=<transaction_id>  |  nosotros: ?reference=SD-...
+  let reference = params.get('reference') || '';
+  let transactionId = params.get('id') || params.get('transaction_id') || '';
 
-  // Wompi a veces deja params propios; también leemos sessionStorage
+  // Si alguien confundió id con reference (legacy), detectar formato SD-
+  if (!reference && transactionId && String(transactionId).startsWith('SD-')) {
+    reference = transactionId;
+    transactionId = '';
+  }
+
   try {
     const saved = JSON.parse(sessionStorage.getItem('sd_last_pago') || 'null');
     if (saved) {
@@ -38,36 +45,43 @@
     });
   }
 
-  async function apiGet(path) {
+  async function api(path, options = {}) {
     const res = await fetch(`${API_URL}${path}`, {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
+        ...(options.headers || {}),
       },
     });
     const json = await res.json().catch(() => ({}));
+    if (res.status === 429) {
+      const err = new Error(json.message || 'Demasiadas consultas');
+      err.status = 429;
+      throw err;
+    }
     if (!res.ok || json.success === false) {
       throw new Error(json.message || 'Error consultando pago');
     }
     return json.data;
   }
 
-  function renderPending(info) {
+  function renderPending(info, extraMsg) {
     if (leadEl) leadEl.textContent = 'Tu pago está en proceso. Esto puede tomar unos segundos.';
     if (statusEl) {
       statusEl.className = 'status-box';
       statusEl.innerHTML = `
-        <strong style="display:block;margin-bottom:0.5rem;color:#f3c45d">Pendiente de confirmación</strong>
-        Estamos esperando la confirmación de Wompi.<br/>
+        <strong style="display:block;margin-bottom:0.5rem;color:#f3c45d">Confirmando pago…</strong>
+        ${escapeHtml(extraMsg || 'Estamos verificando con Wompi.')}<br/>
         ${reference ? `<span style="font-size:0.8rem;opacity:0.7">Ref: ${escapeHtml(reference)}</span>` : ''}
-        ${info?.monto_total != null ? `<div style="margin-top:0.75rem">${money(info.monto_total)}</div>` : ''}
+        ${transactionId ? `<div style="font-size:0.75rem;opacity:0.55;margin-top:0.35rem">Tx: ${escapeHtml(transactionId)}</div>` : ''}
+        ${info?.amount != null || info?.monto_total != null ? `<div style="margin-top:0.75rem">${money(info.amount ?? info.monto_total)}</div>` : ''}
       `;
     }
   }
 
   function renderApproved(info) {
     if (leadEl) leadEl.textContent = '¡Pago confirmado! Ya puedes descargar tus boletas.';
-    const cedulaHint = '';
     if (cardEl) {
       cardEl.innerHTML = `
         <div style="text-align:center">
@@ -75,12 +89,11 @@
             <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block"></span>
             PAGO APROBADO
           </div>
-          <p class="verify-nums" style="font-size:1.4rem;margin:0.75rem 0">${money(info.monto_total)}</p>
-          <p style="color:#a8a29a;margin:0 0 1rem">Estado: ${escapeHtml(info.estado || 'PAGADA')}</p>
+          <p class="verify-nums" style="font-size:1.4rem;margin:0.75rem 0">${money(info.amount ?? info.monto_total)}</p>
+          <p style="color:#a8a29a;margin:0 0 1rem">Estado: ${escapeHtml(info.estado_venta || info.estado || 'PAGADA')}</p>
           <a class="btn-gold cut" href="./mis-boletas.html" style="display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:0 1.25rem;text-decoration:none">
             Descargar mis boletas
           </a>
-          ${cedulaHint}
           <p style="margin-top:1rem;font-size:0.8rem;color:#78716c">
             ${reference ? `Referencia: ${escapeHtml(reference)}` : ''}
           </p>
@@ -100,68 +113,124 @@
             <a class="btn-gold cut" href="./index.html#reservar" style="display:inline-flex;min-height:44px;align-items:center;padding:0 1rem;text-decoration:none">Volver a participar</a>
             <a class="btn-ghost cut" href="./mis-boletas.html" style="display:inline-flex;min-height:44px;align-items:center;padding:0 1rem;text-decoration:none">Mis boletas</a>
           </div>
-          ${info?.pago?.status ? `<p style="margin-top:0.75rem;font-size:0.8rem">Estado Wompi: ${escapeHtml(info.pago.status)}</p>` : ''}
         </div>
       `;
     }
   }
 
-  async function pollOnce() {
-    if (!token && !reference) {
-      renderDeclined(null, 'No encontramos la referencia del pago');
-      return 'stop';
-    }
+  function isApproved(info) {
+    if (!info) return false;
+    if (info.puede_descargar) return true;
+    const estado = String(info.estado_venta || info.estado || '').toUpperCase();
+    const status = String(info.status || info.pago?.status || '').toUpperCase();
+    return estado === 'PAGADA' || status === 'APPROVED';
+  }
 
-    let info = null;
+  function isRejected(info) {
+    const status = String(info?.status || info?.pago?.status || '').toUpperCase();
+    return ['DECLINED', 'VOIDED', 'ERROR'].includes(status);
+  }
+
+  async function syncOnce() {
+    if (!reference && !transactionId && !token) {
+      throw new Error('No encontramos la referencia del pago');
+    }
+    return api('/ventas-online/pagos/sincronizar', {
+      method: 'POST',
+      body: JSON.stringify({
+        reference: reference || null,
+        transaction_id: transactionId || null,
+        reserva_token: token || null,
+      }),
+    });
+  }
+
+  async function pollEstado() {
     if (token) {
-      info = await apiGet(`/ventas-online/reservas/${encodeURIComponent(token)}/estado`);
-    } else if (reference) {
-      const pago = await apiGet(`/ventas-online/pagos/${encodeURIComponent(reference)}`);
-      info = {
-        estado: pago.estado_venta,
-        monto_total: pago.amount,
-        puede_descargar: pago.puede_descargar,
-        pago: pago,
-      };
+      return api(`/ventas-online/reservas/${encodeURIComponent(token)}/estado`);
     }
-
-    const puede = info?.puede_descargar || info?.pago?.puede_descargar;
-    const estado = String(info?.estado || info?.pago?.estado_venta || '').toUpperCase();
-    const pagoStatus = String(info?.pago?.status || '').toUpperCase();
-
-    if (puede || estado === 'PAGADA') {
-      renderApproved(info);
-      return 'stop';
+    if (reference) {
+      return api(`/ventas-online/pagos/${encodeURIComponent(reference)}?refresh=1`);
     }
-
-    if (['DECLINED', 'VOIDED', 'ERROR'].includes(pagoStatus)) {
-      renderDeclined(info, 'Pago rechazado o anulado');
-      return 'stop';
-    }
-
-    renderPending(info);
-    return 'continue';
+    return null;
   }
 
   async function run() {
+    if (!token && !reference && !transactionId) {
+      renderDeclined(null, 'No encontramos la referencia del pago');
+      return;
+    }
+
+    renderPending(null, 'Sincronizando con Wompi…');
+
+    // 1) Intentar sincronizar ya (respaldo del webhook)
+    try {
+      const synced = await syncOnce();
+      if (synced?.reference && !reference) reference = synced.reference;
+      if (isApproved(synced)) {
+        renderApproved(synced);
+        return;
+      }
+      if (isRejected(synced)) {
+        renderDeclined(synced, 'Pago no aprobado');
+        return;
+      }
+    } catch (err) {
+      if (err.status === 429) {
+        renderPending(null, 'Esperando… (límite de consultas). Reintentando…');
+      } else {
+        renderPending(null, err.message || 'Aún confirmando…');
+      }
+    }
+
+    // 2) Polling suave
     let attempts = 0;
-    const maxAttempts = 40; // ~2 min con intervalo 3s
+    const maxAttempts = 24; // ~2 min a 5s
     while (attempts < maxAttempts) {
+      attempts += 1;
+      await new Promise((r) => setTimeout(r, 5000));
       try {
-        const r = await pollOnce();
-        if (r === 'stop') return;
+        // Cada 3 intentos vuelve a sincronizar
+        if (attempts % 3 === 0 && (reference || transactionId || token)) {
+          const synced = await syncOnce();
+          if (synced?.reference && !reference) reference = synced.reference;
+          if (isApproved(synced)) {
+            renderApproved(synced);
+            return;
+          }
+          if (isRejected(synced)) {
+            renderDeclined(synced, 'Pago no aprobado');
+            return;
+          }
+        }
+
+        const info = await pollEstado();
+        if (isApproved(info)) {
+          renderApproved({
+            ...info,
+            amount: info.amount ?? info.monto_total,
+            estado_venta: info.estado_venta || info.estado,
+          });
+          return;
+        }
+        if (isRejected(info)) {
+          renderDeclined(info, 'Pago no aprobado');
+          return;
+        }
+        renderPending(info);
       } catch (err) {
-        if (statusEl) {
-          statusEl.className = 'status-box is-error';
-          statusEl.textContent = err.message || 'Error consultando el pago';
+        if (err.status === 429) {
+          renderPending(null, 'Esperando para no saturar…');
+          await new Promise((r) => setTimeout(r, 10000));
+        } else {
+          renderPending(null, err.message || 'Reintentando…');
         }
       }
-      attempts += 1;
-      await new Promise((r) => setTimeout(r, 3000));
     }
+
     if (leadEl) {
       leadEl.textContent =
-        'Aún no llega la confirmación. Si ya pagaste, revisa Mis boletas en unos minutos.';
+        'Aún no llega la confirmación automática. Si ya pagaste, entra a Mis boletas o contáctanos por WhatsApp con tu comprobante.';
     }
   }
 
