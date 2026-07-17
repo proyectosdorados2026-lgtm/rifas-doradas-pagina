@@ -333,7 +333,7 @@
     }
   }
 
-  async function seleccionarRifa(rifaId) {
+  async function seleccionarRifa(rifaId, numeroDesdeQr = null) {
     showPaso('numeros');
     const list = $('numeros-grid');
     if (list) list.innerHTML = '<div class="loading">Cargando números disponibles…</div>';
@@ -366,7 +366,19 @@
       const maxEl = $('max-boletas');
       if (maxEl) maxEl.textContent = String(MAX_BOLETAS);
 
+      const numeroQr = Number(numeroDesdeQr);
+      if (Number.isInteger(numeroQr)) {
+        const pachaQr = state.boletas.find((b) => Number(b.numero) === numeroQr);
+        if (pachaQr) {
+          state.selectedIds.add(pachaQr.id);
+          toast(`Pacha ${formatPair(pachaQr)} seleccionada desde el QR`, 'ok');
+        } else {
+          toast('Esta pacha ya no está disponible.', 'error');
+        }
+      }
+
       renderGrid();
+      updateSelectionUI();
       startDisponiblesRefresh();
       document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
@@ -1017,8 +1029,23 @@
   window.addEventListener('popstate', () => applyViewFromHash());
   window.addEventListener('hashchange', () => applyViewFromHash());
 
+  async function iniciarCatalogo() {
+    await cargarRifas();
+
+    const params = new URLSearchParams(location.search);
+    const rifaQr = params.get('rifa') || '';
+    const numeroQr = params.get('boleta');
+    const uuidValido =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rifaQr);
+
+    if (uuidValido && numeroQr != null && /^\d+$/.test(numeroQr)) {
+      openReservar({ push: false });
+      await seleccionarRifa(rifaQr, Number(numeroQr));
+    }
+  }
+
   renderMediosPagoEnPagina();
   showPaso('catalogo');
   applyViewFromHash();
-  cargarRifas();
+  iniciarCatalogo();
 })();

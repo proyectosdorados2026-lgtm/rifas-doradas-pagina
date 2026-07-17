@@ -1,6 +1,7 @@
 (function () {
   const cfg = window.RESERVA_CONFIG || {};
   const API_URL = (cfg.API_URL || '').replace(/\/$/, '');
+  const T = window.BoletaTicketUI;
 
   function getHash() {
     const parts = location.pathname.split('/').filter(Boolean);
@@ -86,6 +87,25 @@
     if (!root) return;
 
     const ec = estadoClass(boleta.estado);
+    const ticketHtml =
+      cliente?.nombre && T
+        ? `<div class="boleta-ticket-scale verify-ticket" id="verify-ticket">
+            ${T.buildTicketHtml({
+              boleta: {
+                ...boleta,
+                saldo_pendiente: Number(financiero?.saldo_pendiente || 0),
+              },
+              cliente,
+              rifaNombre: rifa?.nombre,
+              precio: Number(rifa?.precio_boleta || 0),
+            })}
+          </div>
+          <div style="text-align:center;margin:0.8rem 0 1.15rem">
+            <button type="button" class="btn-gold cut" id="btn-guardar-boleta">
+              Guardar boleta como imagen
+            </button>
+          </div>`
+        : '';
     const abonosHtml =
       Array.isArray(abonos) && abonos.length
         ? `<div style="margin-top:1.25rem">
@@ -102,6 +122,7 @@
           </div>`
         : '';
 
+    root.classList.toggle('verify-card--wide', Boolean(ticketHtml));
     root.innerHTML = `
       <div style="text-align:center">
         <div class="verify-badge">
@@ -112,6 +133,7 @@
         <div class="verify-estado verify-estado--${ec}">${escapeHtml(boleta.estado || '—')}</div>
       </div>
 
+      ${ticketHtml}
       <div class="verify-row"><span>Cliente</span><strong>${escapeHtml(cliente?.nombre || '—')}</strong></div>
       <div class="verify-row"><span>Identificación</span><strong>${escapeHtml(cliente?.identificacion || '—')}</strong></div>
       <div class="verify-row"><span>Proyecto</span><strong>${escapeHtml(rifa?.nombre || '—')}</strong></div>
@@ -124,6 +146,36 @@
       <div class="verify-row"><span>Verificado</span><strong>${formatDate(verificado_en)}</strong></div>
       ${abonosHtml}
     `;
+
+    document.getElementById('btn-guardar-boleta')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const ticket = document.querySelector('#verify-ticket .boleta-ticket');
+      if (!ticket || !T) return;
+      button.disabled = true;
+      button.textContent = 'Generando imagen…';
+      try {
+        await T.downloadTicket(ticket, `boleta_${T.pad(boleta.numero)}.png`);
+        button.textContent = 'Imagen guardada';
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = error?.name === 'AbortError'
+          ? 'Guardar boleta como imagen'
+          : 'Intentar guardar de nuevo';
+      }
+    });
+  }
+
+  function irAComprar(data) {
+    const rifaId = String(data?.rifa?.id || '');
+    const numero = Number(data?.boleta?.numero);
+    if (!rifaId || !Number.isInteger(numero)) return false;
+    const params = new URLSearchParams({
+      rifa: rifaId,
+      boleta: String(numero),
+      origen: 'qr',
+    });
+    window.location.replace(`./index.html?${params.toString()}#reservar`);
+    return true;
   }
 
   async function run() {
@@ -141,6 +193,10 @@
       if (!res.ok || !json.success || !json.data) {
         renderError(json.message || 'No se pudo verificar esta boleta.');
         return;
+      }
+      if (String(json.data.boleta?.estado || '').toUpperCase() === 'DISPONIBLE') {
+        if (status) status.textContent = 'Pacha disponible. Abriendo la compra…';
+        if (irAComprar(json.data)) return;
       }
       renderData(json.data);
     } catch (err) {
