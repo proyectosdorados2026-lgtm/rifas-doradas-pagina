@@ -208,6 +208,30 @@
     return [chosen, ...nums.filter((n) => n !== chosen)];
   }
 
+  function rememberPrimaryNumber(boletaId, numero) {
+    if (!boletaId || !Number.isFinite(Number(numero))) return;
+    try {
+      const key = 'sd_primary_numbers';
+      const saved = JSON.parse(localStorage.getItem(key) || '{}');
+      saved[String(boletaId)] = Number(numero);
+      localStorage.setItem(key, JSON.stringify(saved));
+    } catch (_) {
+      /* La compra continúa aunque el navegador bloquee localStorage. */
+    }
+  }
+
+  function forgetPrimaryNumber(boletaId) {
+    if (!boletaId) return;
+    try {
+      const key = 'sd_primary_numbers';
+      const saved = JSON.parse(localStorage.getItem(key) || '{}');
+      delete saved[String(boletaId)];
+      localStorage.setItem(key, JSON.stringify(saved));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   function formatSelectedPair(boleta) {
     const nums = orderedNumbers(boleta);
     return nums.length ? nums.map((n) => `#${padNum(n)}`).join(' · ') : '—';
@@ -419,6 +443,7 @@
         });
         if (pachaQr) {
           state.primaryNumberById.set(pachaQr.id, numeroQr);
+          rememberPrimaryNumber(pachaQr.id, numeroQr);
           state.selectedIds.add(pachaQr.id);
           showGiftNotice(pachaQr, numeroQr);
         } else {
@@ -612,6 +637,7 @@
     if (state.selectedIds.has(boletaId)) {
       state.selectedIds.delete(boletaId);
       state.primaryNumberById.delete(boletaId);
+      forgetPrimaryNumber(boletaId);
     } else {
       if (state.selectedIds.size >= MAX_BOLETAS) {
         toast(`Máximo ${MAX_BOLETAS} números por reserva`, 'error');
@@ -622,6 +648,7 @@
         ? displayedNumber
         : Number(boleta?.numero);
       state.primaryNumberById.set(boletaId, principal);
+      rememberPrimaryNumber(boletaId, principal);
       state.selectedIds.add(boletaId);
       if (boleta) showGiftNotice(boleta, principal);
     }
@@ -633,6 +660,7 @@
     if (!state.selectedIds.has(boletaId)) return;
     state.selectedIds.delete(boletaId);
     state.primaryNumberById.delete(boletaId);
+    forgetPrimaryNumber(boletaId);
     renderGrid($('buscar-numero')?.value || '');
     updateSelectionUI();
     toast('Número quitado de tu compra');

@@ -89,7 +89,7 @@
       <div>
         <strong>${escapeHtml(cliente.nombre)}</strong>
         <div style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem">
-          CC ${escapeHtml(cliente.identificacion)} · ${total_boletas || 0} pacha(s)
+          CC ${escapeHtml(cliente.identificacion)} · ${total_boletas || 0} boleta(s) de doble oportunidad
         </div>
       </div>
       <button type="button" class="btn-gold cut" id="btn-descargar-todas">Guardar todas</button>

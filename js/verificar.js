@@ -45,11 +45,33 @@
   }
 
   function formatNums(boleta) {
-    const nums =
-      Array.isArray(boleta.numeros) && boleta.numeros.length
+    const nums = T
+      ? T.normalizeNums(boleta.numeros, boleta.numero, boleta.id)
+      : Array.isArray(boleta.numeros) && boleta.numeros.length
         ? boleta.numeros
         : [boleta.numero];
-    return nums.map((n) => `#${pad(n)}`).join(' · ');
+    const principal = nums[0];
+    const regalo = nums[1];
+    return `
+      <div class="verify-nums-labeled">
+        <div class="verify-num-card">
+          <span>Número principal</span>
+          <strong>#${pad(principal)}</strong>
+        </div>
+        ${
+          regalo != null
+            ? `<div class="verify-num-card verify-num-card--gift">
+                <span>🎁 Número de regalo</span>
+                <strong>#${pad(regalo)}</strong>
+              </div>`
+            : ''
+        }
+      </div>
+      ${
+        regalo != null
+          ? '<p class="verify-numbers-explanation">Son dos números independientes de 4 cifras, no un número de 8 cifras.</p>'
+          : ''
+      }`;
   }
 
   function estadoClass(estado) {
@@ -129,7 +151,7 @@
           <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block"></span>
           BOLETA VERIFICADA
         </div>
-        <p class="verify-nums">${escapeHtml(formatNums(boleta))}</p>
+        ${formatNums(boleta)}
         <div class="verify-estado verify-estado--${ec}">${escapeHtml(boleta.estado || '—')}</div>
       </div>
 

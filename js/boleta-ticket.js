@@ -17,9 +17,24 @@
     }).format(Number(n) || 0);
   }
 
-  function normalizeNums(numeros, numero) {
-    if (Array.isArray(numeros) && numeros.length) return numeros.map(Number);
-    return numero != null ? [Number(numero)] : [];
+  function normalizeNums(numeros, numero, boletaId) {
+    const nums =
+      Array.isArray(numeros) && numeros.length
+        ? numeros.map(Number).filter(Number.isFinite)
+        : numero != null && Number.isFinite(Number(numero))
+          ? [Number(numero)]
+          : [];
+    if (!boletaId || nums.length < 2) return nums;
+    try {
+      const saved = JSON.parse(localStorage.getItem('sd_primary_numbers') || '{}');
+      const chosen = Number(saved[String(boletaId)]);
+      if (Number.isFinite(chosen) && nums.includes(chosen)) {
+        return [chosen, ...nums.filter((n) => n !== chosen)];
+      }
+    } catch (_) {
+      /* Usa el orden oficial si localStorage no está disponible. */
+    }
+    return nums;
   }
 
   function qrSrc(qrUrl, fallbackData) {
@@ -51,7 +66,9 @@
   }
 
   function buildTicketHtml({ boleta, cliente, rifaNombre, precio }) {
-    const nums = normalizeNums(boleta.numeros, boleta.numero);
+    const nums = normalizeNums(boleta.numeros, boleta.numero, boleta.id);
+    const principal = nums[0];
+    const regalo = nums[1];
     const height = DEFAULT_HEIGHT;
     const deuda = boleta.saldo_pendiente;
     const estado = boleta.estado;
@@ -66,7 +83,7 @@
 
     const right = img
       ? `<div class="boleta-ticket__right" style="width:${RIGHT}px"><img src="${img}" alt="" crossorigin="anonymous" /></div>`
-      : `<div class="boleta-ticket__right" style="width:${RIGHT}px"><div class="boleta-ticket__right-fallback"><div><p>${escapeHtml(rifaNombre || 'Sueños Dorados')}</p><p>${nums.map((n) => '#' + pad(n)).join(' · ')}</p></div></div></div>`;
+      : `<div class="boleta-ticket__right" style="width:${RIGHT}px"><div class="boleta-ticket__right-fallback"><div><p>${escapeHtml(rifaNombre || 'Sueños Dorados')}</p><div class="boleta-ticket__fallback-numbers"><strong>Tu número: #${pad(principal)}</strong>${regalo != null ? `<span>Regalo: #${pad(regalo)}</span>` : ''}</div></div></div></div>`;
 
     return `
       <div class="boleta-ticket" style="width:${WIDTH}px;height:${height}px;min-width:${WIDTH}px">
@@ -84,8 +101,21 @@
             <img class="boleta-ticket__qr" src="${qr}" alt="QR" crossorigin="anonymous" />
           </div>
           <div class="boleta-ticket__footer">
-            <div class="boleta-ticket__numero ${nums.length > 1 ? 'boleta-ticket__numero--par' : ''}">
-              ${nums.map((n) => `<span class="boleta-ticket__numero-line">#${pad(n)}</span>`).join('')}
+            <div class="boleta-ticket__numeros">
+              <div class="boleta-ticket__numero-block boleta-ticket__numero-block--principal">
+                <span class="boleta-ticket__numero-label">Número principal</span>
+                <strong class="boleta-ticket__numero-value">#${pad(principal)}</strong>
+              </div>
+              ${
+                regalo != null
+                  ? `<div class="boleta-ticket__numero-separator" aria-hidden="true">+</div>
+                    <div class="boleta-ticket__numero-block boleta-ticket__numero-block--regalo">
+                      <span class="boleta-ticket__numero-label">🎁 Número de regalo</span>
+                      <strong class="boleta-ticket__numero-value">#${pad(regalo)}</strong>
+                      <span class="boleta-ticket__regalo-note">Incluido gratis · otro número de 4 cifras</span>
+                    </div>`
+                  : ''
+              }
             </div>
             ${precio > 0 ? `<div class="boleta-ticket__precio">${money(precio)}</div>` : ''}
           </div>
