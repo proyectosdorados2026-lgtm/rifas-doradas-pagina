@@ -181,13 +181,20 @@
       button.disabled = true;
       button.textContent = 'Generando imagen…';
       try {
-        await T.downloadTicket(ticket, `boleta_${T.pad(boleta.numero)}.png`);
-        button.textContent = 'Imagen guardada';
+        const result = await T.downloadTicket(ticket, `boleta_${T.pad(boleta.numero)}.png`);
+        if (result?.method === 'cancelled' || result?.method === 'closed') {
+          button.disabled = false;
+          button.textContent = 'Guardar boleta como imagen';
+        } else {
+          button.textContent = 'Imagen lista';
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = 'Guardar boleta como imagen';
+          }, 2000);
+        }
       } catch (error) {
         button.disabled = false;
-        button.textContent = error?.name === 'AbortError'
-          ? 'Guardar boleta como imagen'
-          : 'Intentar guardar de nuevo';
+        button.textContent = 'Intentar guardar de nuevo';
       }
     });
   }

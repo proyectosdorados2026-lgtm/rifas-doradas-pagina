@@ -160,6 +160,152 @@
     );
   }
 
+  function isAppleMobile() {
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  function isShareCancelled(err) {
+    if (!err) return false;
+    const name = String(err.name || '');
+    const msg = String(err.message || '');
+    return (
+      name === 'AbortError' ||
+      /cancel/i.test(msg) ||
+      /share.*cancel/i.test(msg)
+    );
+  }
+
+  function isShareNotAllowed(err) {
+    if (!err) return false;
+    const name = String(err.name || '');
+    const msg = String(err.message || '');
+    return (
+      name === 'NotAllowedError' ||
+      /not allowed by the user agent/i.test(msg) ||
+      /denied permission/i.test(msg) ||
+      /user gesture/i.test(msg)
+    );
+  }
+
+  async function tryNativeShare(blob, name) {
+    if (!navigator.share || !global.File) return { ok: false, reason: 'unsupported' };
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+      return { ok: false, reason: 'unsupported' };
+    }
+    try {
+      await navigator.share({
+        files: [file],
+        title: 'Boleta Sueños Dorados',
+      });
+      return { ok: true, method: 'share' };
+    } catch (err) {
+      if (isShareCancelled(err)) return { ok: true, method: 'cancelled' };
+      if (isShareNotAllowed(err)) return { ok: false, reason: 'not-allowed', error: err };
+      return { ok: false, reason: 'error', error: err };
+    }
+  }
+
+  function triggerAnchorDownload(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return { ok: true, method: 'download' };
+  }
+
+  /**
+   * Tras html2canvas el gesto del usuario ya expiró en iOS/Safari,
+   * así que navigator.share falla con NotAllowedError.
+   * Esta hoja pide un nuevo toque para compartir o guardar.
+   */
+  function showMobileSaveSheet(blob, name) {
+    return new Promise((resolve) => {
+      const prev = document.getElementById('boleta-save-sheet');
+      if (prev) prev.remove();
+
+      const url = URL.createObjectURL(blob);
+      const sheet = document.createElement('div');
+      sheet.id = 'boleta-save-sheet';
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.innerHTML = `
+        <div class="boleta-save-sheet__backdrop" data-close="1"></div>
+        <div class="boleta-save-sheet__card">
+          <p class="boleta-save-sheet__title">Tu boleta está lista</p>
+          <p class="boleta-save-sheet__hint">Toca <strong>Compartir</strong> y elige “Guardar en Fotos”, o mantén pulsada la imagen.</p>
+          <img class="boleta-save-sheet__preview" src="${url}" alt="Vista previa de la boleta" />
+          <div class="boleta-save-sheet__actions">
+            <button type="button" class="boleta-save-sheet__btn boleta-save-sheet__btn--primary" data-share="1">Compartir / Guardar</button>
+            <button type="button" class="boleta-save-sheet__btn" data-close="1">Cerrar</button>
+          </div>
+        </div>
+      `;
+
+      if (!document.getElementById('boleta-save-sheet-style')) {
+        const style = document.createElement('style');
+        style.id = 'boleta-save-sheet-style';
+        style.textContent = `
+          #boleta-save-sheet{position:fixed;inset:0;z-index:99999;display:flex;align-items:flex-end;justify-content:center;padding:1rem;padding-bottom:max(1rem,env(safe-area-inset-bottom));box-sizing:border-box}
+          .boleta-save-sheet__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72)}
+          .boleta-save-sheet__card{position:relative;width:min(420px,100%);background:#141414;color:#f5f2ea;border:1px solid rgba(243,196,93,.45);border-radius:18px 18px 12px 12px;padding:1rem 1rem 1.15rem;box-shadow:0 -12px 40px rgba(0,0,0,.45)}
+          .boleta-save-sheet__title{margin:0 0 .35rem;font-size:1.05rem;font-weight:800}
+          .boleta-save-sheet__hint{margin:0 0 .85rem;font-size:.82rem;line-height:1.35;color:rgba(245,242,234,.75)}
+          .boleta-save-sheet__preview{display:block;width:100%;max-height:42vh;object-fit:contain;border-radius:10px;background:#0c0c0c;margin-bottom:.9rem;-webkit-touch-callout:default;user-select:none}
+          .boleta-save-sheet__actions{display:grid;gap:.55rem}
+          .boleta-save-sheet__btn{appearance:none;border:1px solid rgba(245,242,234,.2);background:rgba(255,255,255,.06);color:#f5f2ea;border-radius:10px;padding:.85rem 1rem;font-weight:700;font-size:.92rem;cursor:pointer}
+          .boleta-save-sheet__btn--primary{background:linear-gradient(135deg,#d4a017,#f3c45d);color:#1a1205;border-color:transparent}
+        `;
+        document.head.appendChild(style);
+      }
+
+      const finish = (result) => {
+        sheet.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        resolve(result);
+      };
+
+      sheet.addEventListener('click', async (ev) => {
+        const t = ev.target;
+        if (!(t instanceof Element)) return;
+        if (t.closest('[data-close]')) {
+          finish({ ok: true, method: 'closed' });
+          return;
+        }
+        const shareBtn = t.closest('[data-share]');
+        if (!shareBtn) return;
+        shareBtn.setAttribute('disabled', 'true');
+        shareBtn.textContent = 'Abriendo…';
+        const shared = await tryNativeShare(blob, name);
+        if (shared.ok) {
+          finish(shared);
+          return;
+        }
+        // Si aún falla el share, la imagen ya está visible para long-press.
+        shareBtn.removeAttribute('disabled');
+        shareBtn.textContent = 'Compartir / Guardar';
+        const hint = sheet.querySelector('.boleta-save-sheet__hint');
+        if (hint) {
+          hint.innerHTML =
+            'Si no aparece compartir, <strong>mantén pulsada la imagen</strong> y elige “Guardar en Fotos”.';
+        }
+      });
+
+      document.body.appendChild(sheet);
+    });
+  }
+
+  /**
+   * @returns {Promise<{ok:boolean, method?:string}>}
+   */
   async function downloadTicket(ticketEl, fileName) {
     if (!global.html2canvas) throw new Error('html2canvas no cargado');
     await waitImages(ticketEl);
@@ -176,31 +322,24 @@
     if (!blob) throw new Error('No se pudo generar la imagen');
     const name = fileName.endsWith('.png') ? fileName : `${fileName}.png`;
 
-    // Safari en iPhone/iPad no siempre respeta el atributo download para blobs.
-    // La hoja nativa permite guardar la imagen en Fotos o Archivos.
-    const isAppleMobile =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (isAppleMobile && navigator.share && global.File) {
-      const file = new File([blob], name, { type: 'image/png' });
-      if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Boleta Sueños Dorados',
-        });
-        return;
+    // iPhone/iPad: tras generar la imagen el gesto ya expiró → share directo falla.
+    // Intentamos share; si Safari lo bloquea, pedimos un nuevo toque.
+    if (isAppleMobile()) {
+      const shared = await tryNativeShare(blob, name);
+      if (shared.ok) return shared;
+      return showMobileSaveSheet(blob, name);
+    }
+
+    // Android u otros con Web Share usable en el mismo gesto residual
+    if (navigator.share && global.File) {
+      const shared = await tryNativeShare(blob, name);
+      if (shared.ok) return shared;
+      if (shared.reason === 'not-allowed') {
+        return showMobileSaveSheet(blob, name);
       }
     }
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 20000);
+    return triggerAnchorDownload(blob, name);
   }
 
   global.BoletaTicketUI = {

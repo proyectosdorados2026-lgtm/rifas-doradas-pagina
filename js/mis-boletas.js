@@ -176,11 +176,15 @@
         btn.disabled = true;
         btn.textContent = 'Generando…';
         try {
-          await T.downloadTicket(
+          const result = await T.downloadTicket(
             ticket,
             `boleta_${T.pad(num)}_CC_${String(cliente.identificacion).replace(/\s+/g, '_')}.png`
           );
-          toast('Boleta descargada', 'ok');
+          if (result?.method === 'cancelled' || result?.method === 'closed') {
+            toast('Guardado cancelado', 'ok');
+          } else {
+            toast('Boleta lista para guardar', 'ok');
+          }
         } catch (err) {
           toast(err.message || 'Error al descargar', 'error');
         } finally {
@@ -206,18 +210,25 @@
       btn.textContent = 'Descargando…';
     }
     try {
+      let guardadas = 0;
       for (const rifa of rifas) {
         for (const b of rifa.boletas) {
           const ticket = document.querySelector(`#wrap-${b.id} .boleta-ticket`);
           if (!ticket) continue;
-          await T.downloadTicket(
+          if (btn) btn.textContent = `Guardando ${guardadas + 1}…`;
+          const result = await T.downloadTicket(
             ticket,
             `boleta_${T.pad(b.numero)}_CC_${String(cliente.identificacion).replace(/\s+/g, '_')}.png`
           );
-          await new Promise((r) => setTimeout(r, 500));
+          if (result?.method === 'cancelled' || result?.method === 'closed') {
+            toast('Descarga detenida', 'ok');
+            return;
+          }
+          guardadas += 1;
+          await new Promise((r) => setTimeout(r, 350));
         }
       }
-      toast('Descargas listas', 'ok');
+      toast(guardadas ? `Listas ${guardadas} boleta(s)` : 'Sin boletas para guardar', 'ok');
     } catch (err) {
       toast(err.message || 'Error al descargar', 'error');
     } finally {
