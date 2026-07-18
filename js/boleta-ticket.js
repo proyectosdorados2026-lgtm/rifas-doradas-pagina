@@ -17,22 +17,30 @@
     }).format(Number(n) || 0);
   }
 
-  function normalizeNums(numeros, numero, boletaId) {
+  function normalizeNums(numeros, numero, boletaId, numeroPrincipal) {
     const nums =
       Array.isArray(numeros) && numeros.length
         ? numeros.map(Number).filter(Number.isFinite)
         : numero != null && Number.isFinite(Number(numero))
           ? [Number(numero)]
           : [];
-    if (!boletaId || nums.length < 2) return nums;
-    try {
-      const saved = JSON.parse(localStorage.getItem('sd_primary_numbers') || '{}');
-      const chosen = Number(saved[String(boletaId)]);
-      if (Number.isFinite(chosen) && nums.includes(chosen)) {
-        return [chosen, ...nums.filter((n) => n !== chosen)];
+    if (nums.length < 2) return nums;
+
+    const fromApi = Number(numeroPrincipal);
+    if (Number.isFinite(fromApi) && nums.includes(fromApi)) {
+      return [fromApi, ...nums.filter((n) => n !== fromApi)];
+    }
+
+    if (boletaId) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('sd_primary_numbers') || '{}');
+        const chosen = Number(saved[String(boletaId)]);
+        if (Number.isFinite(chosen) && nums.includes(chosen)) {
+          return [chosen, ...nums.filter((n) => n !== chosen)];
+        }
+      } catch (_) {
+        /* Usa el orden oficial si localStorage no está disponible. */
       }
-    } catch (_) {
-      /* Usa el orden oficial si localStorage no está disponible. */
     }
     return nums;
   }
@@ -66,7 +74,12 @@
   }
 
   function buildTicketHtml({ boleta, cliente, rifaNombre, precio }) {
-    const nums = normalizeNums(boleta.numeros, boleta.numero, boleta.id);
+    const nums = normalizeNums(
+      boleta.numeros,
+      boleta.numero,
+      boleta.id,
+      boleta.numero_principal
+    );
     const principal = nums[0];
     const regalo = nums[1];
     const height = DEFAULT_HEIGHT;

@@ -46,7 +46,12 @@
 
   function formatNums(boleta) {
     const nums = T
-      ? T.normalizeNums(boleta.numeros, boleta.numero, boleta.id)
+      ? T.normalizeNums(
+          boleta.numeros,
+          boleta.numero,
+          boleta.id,
+          boleta.numero_principal
+        )
       : Array.isArray(boleta.numeros) && boleta.numeros.length
         ? boleta.numeros
         : [boleta.numero];

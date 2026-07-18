@@ -843,11 +843,13 @@
       girarRuleta();
       return;
     }
-    state.primaryNumberById.set(candidate.id, Number(candidate.numero));
+    const principalRuleta = Number(candidate.numero);
+    state.primaryNumberById.set(candidate.id, principalRuleta);
+    rememberPrimaryNumber(candidate.id, principalRuleta);
     state.selectedIds.add(candidate.id);
     renderGrid($('buscar-numero')?.value || '');
     updateSelectionUI();
-    showGiftNotice(candidate, Number(candidate.numero));
+    showGiftNotice(candidate, principalRuleta);
     closeRuleta();
   }
 
@@ -863,11 +865,19 @@
     }
 
     try {
+      const selecciones = ids.map((id) => ({
+        boleta_id: id,
+        numero_principal: Number(
+          state.primaryNumberById.get(id) ??
+            state.boletas.find((b) => b.id === id)?.numero
+        ),
+      }));
       const res = await api('/ventas-online/boletas/bloquear', {
         method: 'POST',
         body: JSON.stringify({
           rifa_id: state.rifa.id,
           boleta_ids: ids,
+          selecciones,
           tiempo_bloqueo_minutos: BLOQUEO_MINUTOS,
         }),
       });
