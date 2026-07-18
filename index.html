@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./css/styles.css" />
+    <link rel="stylesheet" href="./css/styles.css?v=20260718b" />
     <link rel="stylesheet" href="./css/hero.css" />
   </head>
   <body>
@@ -255,7 +255,7 @@
           <ul class="about-points">
             <li class="reveal">
               <strong>01 — Doble oportunidad</strong>
-              Compras un número y te llevas otro al azar. Más chances, mismo precio.
+              Compras un número y te llevas otro número de regalo. Más chances, mismo precio.
             </li>
             <li class="reveal">
               <strong>02 — Premios reales</strong>
@@ -367,7 +367,7 @@
         <div class="frame-caption frame-caption-center">
           <p class="big-quote">
             Compras un número.<br />
-            Te llevas otro al azar.
+            Te llevas otro número de regalo.
           </p>
         </div>
       </article>
@@ -487,7 +487,7 @@
         <h2 class="display-title">Reserva tu boleta</h2>
         <p class="reserva-lead">
           Boleta <strong>$20.000</strong> con doble oportunidad: eliges un número y te
-          llevas otro al azar. Usa la grilla o la ruleta. Quita números cuando quieras.
+          llevas otro número de regalo. Usa la grilla o la ruleta. Quita números cuando quieras.
         </p>
       </div>
 
@@ -515,12 +515,12 @@
             <div class="compra-panel-head">
               <div>
                 <p class="meta-line" style="margin-bottom: 0.2rem">Tu selección</p>
-                <p class="compra-hint">Cada boleta incluye tu número + otro al azar · Toca × para quitar</p>
+                <p class="compra-hint">Elige un número y descubre el segundo número que te regalamos · Toca × para quitar</p>
               </div>
               <div class="compra-actions">
                 <button type="button" class="btn-ghost cut btn-sm" id="btn-al-azar">Al azar</button>
                 <div class="selection-summary">
-                  <span>Pachas</span>
+                  <span>Números</span>
                   <strong id="seleccion-count">0</strong>
                   <span>/</span>
                   <span id="max-boletas">10</span>
@@ -528,8 +528,9 @@
               </div>
             </div>
             <div id="seleccion-chips" class="seleccion-chips">
-              <p class="seleccion-empty" id="seleccion-empty">Aún no hay pachas en tu compra</p>
+              <p class="seleccion-empty" id="seleccion-empty">Aún no hay números en tu compra</p>
             </div>
+            <div id="regalo-notice" class="regalo-notice hidden" role="status" aria-live="polite"></div>
           </div>
 
           <div class="toolbar">
@@ -542,9 +543,10 @@
           </div>
 
           <div id="leyenda-doble" class="leyenda hidden">
-            <strong>Doble oportunidad:</strong> al comprar un número te llevas
-            otro al azar. En pantalla ves el par completo
-            <span id="ejemplo-pacha">(ej. #0001 · #0682)</span>.
+            <strong>Doble oportunidad:</strong> elige uno de los números disponibles.
+            Al seleccionarlo te mostraremos el otro número que recibes de regalo.
+            Mostramos una selección aleatoria de hasta 1.000 números por visita;
+            el buscador consulta todos los disponibles.
           </div>
 
           <div id="numeros-grid" class="num-grid" role="listbox" aria-label="Números disponibles"></div>
@@ -554,7 +556,7 @@
               <img class="sticky-logo" src="./logo.png" alt="" />
               <div>
                 <div class="price-pill" id="total-seleccion">Total ₡0</div>
-                <p class="sticky-muted" id="nums-seleccionados">Ninguna pacha seleccionada</p>
+                <p class="sticky-muted" id="nums-seleccionados">Ningún número seleccionado</p>
               </div>
             </div>
             <button type="button" class="btn-gold cut" id="btn-continuar" disabled>Reservar</button>
@@ -601,7 +603,7 @@
             <img class="success-logo" src="./logo.png" alt="" />
             <div class="success-burst" aria-hidden="true">✓</div>
             <h3>¡Reserva confirmada!</h3>
-            <p class="form-lead">Tu pacha está apartada. Paga ahora para descargarla al instante.</p>
+            <p class="form-lead">Tus dos números están apartados. Paga ahora para descargarlos al instante.</p>
             <div class="exito-box" id="exito-detalle"></div>
             <div class="wompi-pay-box" id="exito-wompi">
               <button type="button" class="btn-gold cut" id="btn-pagar-wompi" disabled>
@@ -623,6 +625,22 @@
     </section>
     </div><!-- /view-reservar -->
 
+    <!-- REGALO OVERLAY -->
+    <div id="regalo-overlay" class="regalo-overlay hidden" role="dialog" aria-modal="true" aria-live="assertive">
+      <div class="regalo-backdrop" data-regalo-close></div>
+      <div class="regalo-card" data-regalo-close>
+        <img class="regalo-logo" src="./logo.png" alt="" aria-hidden="true" />
+        <p class="regalo-kicker">Tu número</p>
+        <p class="regalo-principal" id="regalo-principal">#0000</p>
+        <div class="regalo-gift-wrap">
+          <span class="regalo-gift-icon" aria-hidden="true">🎁</span>
+          <p class="regalo-gift-label">¡Te regalamos también!</p>
+        </div>
+        <p class="regalo-secundario" id="regalo-secundario">#0000</p>
+        <p class="regalo-hint">Doble oportunidad, mismo precio · Toca para continuar</p>
+      </div>
+    </div>
+
     <!-- RULETA MODAL -->
     <div id="ruleta-modal" class="ruleta-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ruleta-title">
       <div class="ruleta-backdrop" data-ruleta-close></div>
@@ -638,7 +656,7 @@
           <div class="ruleta-marker" aria-hidden="true"></div>
           <div class="ruleta-display" id="ruleta-display">————</div>
         </div>
-        <p class="ruleta-status" id="ruleta-status">Gira para elegir una pacha al azar</p>
+        <p class="ruleta-status" id="ruleta-status">Gira para elegir un número al azar</p>
         <div class="ruleta-actions" id="ruleta-actions-spin">
           <button type="button" class="btn-gold cut" id="btn-ruleta-girar">Girar ruleta</button>
         </div>
@@ -669,7 +687,7 @@
     <script src="./js/vendor/ScrollTrigger.min.js"></script>
     <script src="./js/config.js"></script>
     <script src="./js/wompi-checkout.js"></script>
-    <script src="./js/app.js?v=20260716d"></script>
+    <script src="./js/app.js?v=20260718b"></script>
     <script src="./js/hero.js"></script>
     <script src="./js/motion.js"></script>
   </body>

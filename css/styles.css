@@ -1021,6 +1021,16 @@ body.is-reservar .site-header {
   font-size: 0.88rem;
 }
 
+.regalo-notice {
+  margin-top: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(243, 196, 93, 0.5);
+  background: rgba(185, 133, 13, 0.14);
+  color: var(--gold-light);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .chip-removable {
   display: inline-flex;
   align-items: center;
@@ -1085,6 +1095,166 @@ body.is-reservar .site-header {
 }
 
 /* Ruleta */
+/* ─── Overlay "te regalamos" ─────────────────────────── */
+.regalo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.regalo-overlay.hidden {
+  display: none !important;
+}
+
+.regalo-overlay.is-leaving .regalo-backdrop,
+.regalo-overlay.is-leaving .regalo-card {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.regalo-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: fadeIn 0.2s ease;
+}
+
+.regalo-card {
+  position: relative;
+  z-index: 1;
+  width: min(400px, 92vw);
+  padding: clamp(1.5rem, 5vw, 2.25rem) clamp(1.15rem, 4vw, 1.75rem);
+  text-align: center;
+  background: linear-gradient(170deg, #16110a 0%, #0a0a0a 60%);
+  border: 1px solid rgba(243, 196, 93, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(185, 133, 13, 0.25),
+    0 24px 70px rgba(0, 0, 0, 0.65),
+    0 0 60px rgba(212, 175, 55, 0.18);
+  cursor: pointer;
+  animation: regaloCardIn 0.38s cubic-bezier(0.2, 1.25, 0.4, 1);
+}
+
+.regalo-logo {
+  width: 54px;
+  height: auto;
+  margin: 0 auto 0.6rem;
+  filter: drop-shadow(0 0 14px rgba(212, 175, 55, 0.4));
+}
+
+.regalo-kicker {
+  margin: 0;
+  color: rgba(243, 241, 235, 0.65);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.regalo-principal {
+  margin: 0.2rem 0 0.9rem;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: clamp(2.2rem, 10vw, 3rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.regalo-gift-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.regalo-gift-icon {
+  font-size: 1.5rem;
+  display: inline-block;
+}
+
+.regalo-card.is-armed .regalo-gift-icon {
+  animation: regaloShake 0.7s ease 0.35s both;
+}
+
+.regalo-gift-label {
+  margin: 0;
+  color: var(--gold-soft, #f3c45d);
+  font-size: clamp(0.95rem, 4vw, 1.1rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.regalo-secundario {
+  margin: 0 0 0.9rem;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: clamp(2.6rem, 13vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--gold-light, #e4b548);
+  text-shadow: 0 0 26px rgba(212, 175, 55, 0.55);
+}
+
+.regalo-card.is-armed .regalo-secundario {
+  animation: regaloReveal 0.55s cubic-bezier(0.2, 1.4, 0.35, 1) 0.55s both;
+}
+
+.regalo-hint {
+  margin: 0;
+  color: rgba(243, 241, 235, 0.55);
+  font-size: 0.78rem;
+}
+
+@keyframes regaloCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes regaloReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(6px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.12);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes regaloShake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-14deg) scale(1.15); }
+  40% { transform: rotate(12deg) scale(1.2); }
+  60% { transform: rotate(-8deg) scale(1.12); }
+  80% { transform: rotate(6deg) scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regalo-card,
+  .regalo-card.is-armed .regalo-secundario,
+  .regalo-card.is-armed .regalo-gift-icon {
+    animation: none;
+  }
+}
+
 .ruleta-modal {
   position: fixed;
   inset: 0;
@@ -1470,6 +1640,22 @@ body.is-reservar .site-header {
 
 .num-grid-dual {
   grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+}
+
+.num-series {
+  grid-column: 1 / -1;
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.2rem 0.3rem;
+  border-bottom: 1px solid rgba(243, 196, 93, 0.28);
+  color: var(--gold-light);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.num-series:first-child {
+  margin-top: 0;
 }
 
 .num-cell {

@@ -4,6 +4,7 @@
   const API_KEY = CONFIG.API_KEY || '';
   const BLOQUEO_MINUTOS = CONFIG.BLOQUEO_MINUTOS || 15;
   const MAX_BOLETAS = CONFIG.MAX_BOLETAS || 10;
+  const GRID_SAMPLE_LIMIT = 1000;
   const STOCK = CONFIG.STOCK || {};
 
   const state = {
@@ -11,6 +12,8 @@
     rifas: [],
     rifa: null,
     boletas: [],
+    gridSampleIds: [],
+    primaryNumberById: new Map(),
     selectedIds: new Set(),
     reservaToken: null,
     bloqueoHasta: null,
@@ -166,7 +169,7 @@
     const msg =
       `Hola, soy ${nombre}. Confirmé mi reserva en *Sueños Dorados*.\n` +
       `Tel: ${telefono}\n` +
-      `Pachas: ${pachas}\n` +
+      `Números: ${pachas}\n` +
       `Total: ${total}\n\n` +
       `Adjunto comprobante de pago.`;
     return `https://wa.me/${getWhatsAppWaMe()}?text=${encodeURIComponent(msg)}`;
@@ -193,26 +196,68 @@
     return String(n).padStart(4, '0');
   }
 
-  function formatPair(boleta) {
-    if (boleta == null) return '—';
-    if (typeof boleta === 'number' || typeof boleta === 'string') {
-      const n = Number(boleta);
-      return Number.isFinite(n) ? `#${padNum(n)}` : '—';
-    }
+  function orderedNumbers(boleta) {
     const nums =
-      Array.isArray(boleta.numeros) && boleta.numeros.length
-        ? boleta.numeros
-        : boleta.numero != null
-          ? [boleta.numero]
+      Array.isArray(boleta?.numeros) && boleta.numeros.length
+        ? boleta.numeros.map(Number)
+        : boleta?.numero != null
+          ? [Number(boleta.numero)]
           : [];
-    if (!nums.length) return '—';
-    return nums.map((x) => `#${padNum(x)}`).join(' · ');
+    const chosen = Number(state.primaryNumberById.get(boleta?.id));
+    if (!Number.isFinite(chosen) || !nums.includes(chosen)) return nums;
+    return [chosen, ...nums.filter((n) => n !== chosen)];
+  }
+
+  function formatSelectedPair(boleta) {
+    const nums = orderedNumbers(boleta);
+    return nums.length ? nums.map((n) => `#${padNum(n)}`).join(' · ') : '—';
+  }
+
+  function shuffle(list) {
+    const copy = [...list];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function groupSampleIds(ids) {
+    const byId = new Map(state.boletas.map((b) => [b.id, b]));
+    const groups = Array.from({ length: 10 }, () => []);
+    ids.forEach((id) => {
+      const boleta = byId.get(id);
+      if (!boleta) return;
+      const digit = Number(padNum(boleta.numero).charAt(0));
+      groups[Number.isInteger(digit) ? digit : 0].push(id);
+    });
+    return groups.flat();
+  }
+
+  function createVisitSample() {
+    const picked = shuffle(state.boletas)
+      .slice(0, GRID_SAMPLE_LIMIT)
+      .map((b) => b.id);
+    state.gridSampleIds = groupSampleIds(picked);
+  }
+
+  function refreshVisitSample() {
+    const availableIds = new Set(state.boletas.map((b) => b.id));
+    const kept = state.gridSampleIds.filter((id) => availableIds.has(id));
+    const keptSet = new Set(kept);
+    const missing = Math.max(0, Math.min(GRID_SAMPLE_LIMIT, state.boletas.length) - kept.length);
+    const replacements = shuffle(
+      state.boletas.filter((b) => !keptSet.has(b.id))
+    )
+      .slice(0, missing)
+      .map((b) => b.id);
+    state.gridSampleIds = groupSampleIds([...kept, ...replacements]);
   }
 
   function formatPachasLabel(boletas) {
     const list = Array.isArray(boletas) ? boletas : [];
     if (!list.length) return '';
-    return list.map((b) => `Pacha ${formatPair(b)}`).join(', ');
+    return list.map((b) => `Números ${formatSelectedPair(b)}`).join(', ');
   }
 
   function escapeHtml(str) {
@@ -338,6 +383,8 @@
     const list = $('numeros-grid');
     if (list) list.innerHTML = '<div class="loading">Cargando números disponibles…</div>';
     state.selectedIds = new Set();
+    state.gridSampleIds = [];
+    state.primaryNumberById = new Map();
     updateSelectionUI();
 
     try {
@@ -347,33 +394,35 @@
         ...b,
         numeros: Array.isArray(b.numeros) ? b.numeros.map(Number) : [Number(b.numero)],
       }));
+      createVisitSample();
 
       $('rifa-titulo').textContent = state.rifa.nombre;
       $('rifa-desc').textContent = state.rifa.doble_oportunidad
-        ? `Doble oportunidad (número + otro al azar) · Mayor 26 sep · Anticipado 5 sep · ${state.boletas.length} boletas libres`
+        ? `Doble oportunidad (número elegido + número de regalo) · Mayor 26 sep · Anticipado 5 sep · ${state.boletas.length} boletas libres`
         : `Sorteo ${formatDate(state.rifa.fecha_sorteo)} · ${state.boletas.length} números libres`;
       $('rifa-precio').textContent = formatMoney(state.rifa.precio_boleta);
 
       const leyenda = $('leyenda-doble');
       if (leyenda) {
         leyenda.classList.toggle('hidden', !state.rifa.doble_oportunidad);
-        if (state.rifa.doble_oportunidad && state.boletas[0]) {
-          const ej = $('ejemplo-pacha');
-          if (ej) ej.textContent = `(ej. ${formatPair(state.boletas[0])})`;
-        }
       }
 
       const maxEl = $('max-boletas');
       if (maxEl) maxEl.textContent = String(MAX_BOLETAS);
 
-      const numeroQr = Number(numeroDesdeQr);
-      if (Number.isInteger(numeroQr)) {
-        const pachaQr = state.boletas.find((b) => Number(b.numero) === numeroQr);
+      // numeroDesdeQr=null → Number(null)=0; no tratar eso como QR
+      if (numeroDesdeQr != null && numeroDesdeQr !== '' && Number.isInteger(Number(numeroDesdeQr))) {
+        const numeroQr = Number(numeroDesdeQr);
+        const pachaQr = state.boletas.find((b) => {
+          const nums = Array.isArray(b.numeros) ? b.numeros.map(Number) : [Number(b.numero)];
+          return nums.includes(numeroQr);
+        });
         if (pachaQr) {
+          state.primaryNumberById.set(pachaQr.id, numeroQr);
           state.selectedIds.add(pachaQr.id);
-          toast(`Pacha ${formatPair(pachaQr)} seleccionada desde el QR`, 'ok');
+          showGiftNotice(pachaQr, numeroQr);
         } else {
-          toast('Esta pacha ya no está disponible.', 'error');
+          toast('Este número ya no está disponible.', 'error');
         }
       }
 
@@ -387,15 +436,41 @@
     }
   }
 
-  function buildCells() {
-    return state.boletas
-      .map((b) => ({
-        numero: b.numero,
-        label: state.rifa?.doble_oportunidad ? formatPair(b) : padNum(b.numero),
-        boletaId: b.id,
-        boleta: b,
-      }))
-      .sort((a, b) => a.numero - b.numero);
+  function matchedNumber(boleta, term) {
+    const nums = boleta.numeros || [boleta.numero];
+    if (!term) return Number(boleta.numero);
+    const digits = term.replace(/\D/g, '');
+    if (!digits) return undefined;
+    return nums.find((n) => {
+      const padded = padNum(n);
+      if (digits.length === 4) return padded === digits;
+      return padded.includes(digits) || String(n).includes(digits);
+    });
+  }
+
+  function buildCells(filter = '') {
+    const term = (filter || '').replace(/^#/, '').trim();
+    const byId = new Map(state.boletas.map((b) => [b.id, b]));
+    const source = term
+      ? state.boletas
+      : state.gridSampleIds.map((id) => byId.get(id)).filter(Boolean);
+
+    const cells = source
+      .map((b) => {
+        const numero = matchedNumber(b, term);
+        if (numero == null) return null;
+        return {
+          numero: Number(numero),
+          label: padNum(numero),
+          boletaId: b.id,
+          boleta: b,
+        };
+      })
+      .filter(Boolean);
+
+    // La muestra conserva grupos 0–9 y orden aleatorio interno.
+    // Los resultados de búsqueda se ordenan para que sean fáciles de revisar.
+    return term ? cells.sort((a, b) => a.numero - b.numero) : cells;
   }
 
   function renderGrid(filter = '') {
@@ -403,38 +478,37 @@
     if (!grid) return;
 
     const term = (filter || '').replace(/^#/, '').trim();
-    let cells = buildCells();
-    if (term) {
-      cells = cells.filter((c) => {
-        const nums = c.boleta.numeros || [c.numero];
-        return nums.some((n) => {
-          const padded = padNum(n);
-          const clean = term.replace(/^0+/, '') || '0';
-          return padded.includes(term) || String(n).includes(clean);
-        });
-      });
-    }
+    const cells = buildCells(term);
 
     if (!cells.length) {
       grid.innerHTML = '<div class="empty">No hay números para mostrar.</div>';
       return;
     }
 
-    const dual = Boolean(state.rifa?.doble_oportunidad);
-    grid.classList.toggle('num-grid-dual', dual);
+    grid.classList.remove('num-grid-dual');
 
+    let lastSeries = null;
     grid.innerHTML = cells
       .map((c) => {
         const isSelected = state.selectedIds.has(c.boletaId);
-        return `<button type="button" class="num-cell ${dual ? 'num-cell-dual' : ''} ${isSelected ? 'selected' : ''}"
+        const series = padNum(c.numero).charAt(0);
+        const heading =
+          !term && series !== lastSeries
+            ? `<div class="num-series">Serie ${series}</div>`
+            : '';
+        lastSeries = series;
+        return `${heading}<button type="button" class="num-cell ${isSelected ? 'selected' : ''}"
           data-boleta="${c.boletaId}" data-numero="${c.numero}"
-          title="${escapeHtml(formatPair(c.boleta))}">${escapeHtml(c.label)}</button>`;
+          title="Seleccionar #${escapeHtml(c.label)}">${escapeHtml(c.label)}</button>`;
       })
       .join('');
 
     grid.querySelectorAll('.num-cell').forEach((btn) => {
       btn.addEventListener('click', () => {
-        toggleBoleta(btn.getAttribute('data-boleta'));
+        toggleBoleta(
+          btn.getAttribute('data-boleta'),
+          Number(btn.getAttribute('data-numero'))
+        );
         if (typeof window.pulseNumCell === 'function') {
           window.pulseNumCell(btn);
         }
@@ -454,16 +528,18 @@
           ...b,
           numeros: Array.isArray(b.numeros) ? b.numeros.map(Number) : [Number(b.numero)],
         }));
+        refreshVisitSample();
         const stillAvailable = new Set(state.boletas.map((b) => b.id));
         let removed = false;
         for (const id of [...prevSelected]) {
           if (!stillAvailable.has(id)) {
             state.selectedIds.delete(id);
+            state.primaryNumberById.delete(id);
             removed = true;
           }
         }
         if (removed) {
-          toast('Algunas pachas ya no están disponibles.', 'error');
+          toast('Algunos números ya no están disponibles.', 'error');
         }
         renderGrid($('buscar-numero')?.value || '');
         updateSelectionUI();
@@ -480,15 +556,74 @@
     }
   }
 
-  function toggleBoleta(boletaId) {
+  let giftOverlayTimer = null;
+
+  function hideGiftOverlay() {
+    clearTimeout(giftOverlayTimer);
+    giftOverlayTimer = null;
+    const overlay = $('regalo-overlay');
+    if (!overlay || overlay.classList.contains('hidden')) return;
+    overlay.classList.add('is-leaving');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('is-leaving');
+    }, 220);
+  }
+
+  function showGiftOverlay(principal, gift) {
+    const overlay = $('regalo-overlay');
+    if (!overlay) return;
+    const principalEl = $('regalo-principal');
+    const secundarioEl = $('regalo-secundario');
+    if (principalEl) principalEl.textContent = `#${padNum(principal)}`;
+    if (secundarioEl) secundarioEl.textContent = `#${padNum(gift)}`;
+
+    clearTimeout(giftOverlayTimer);
+    overlay.classList.remove('hidden', 'is-leaving');
+    // Reinicia las animaciones CSS en aperturas consecutivas
+    const card = overlay.querySelector('.regalo-card');
+    if (card) {
+      card.classList.remove('is-armed');
+      void card.offsetWidth;
+      card.classList.add('is-armed');
+    }
+    giftOverlayTimer = setTimeout(hideGiftOverlay, 3200);
+  }
+
+  function showGiftNotice(boleta, principal) {
+    const notice = $('regalo-notice');
+    const nums = Array.isArray(boleta?.numeros) ? boleta.numeros.map(Number) : [];
+    const gift = nums.find((n) => n !== Number(principal));
+    const message = gift != null
+      ? `Elegiste #${padNum(principal)}. ¡Te regalamos también el #${padNum(gift)}!`
+      : `Elegiste #${padNum(principal)}.`;
+    if (notice) {
+      notice.textContent = message;
+      notice.classList.remove('hidden');
+    }
+    if (gift != null) {
+      showGiftOverlay(principal, gift);
+    } else {
+      toast(message, 'ok');
+    }
+  }
+
+  function toggleBoleta(boletaId, displayedNumber) {
     if (state.selectedIds.has(boletaId)) {
       state.selectedIds.delete(boletaId);
+      state.primaryNumberById.delete(boletaId);
     } else {
       if (state.selectedIds.size >= MAX_BOLETAS) {
-        toast(`Máximo ${MAX_BOLETAS} pachas por reserva`, 'error');
+        toast(`Máximo ${MAX_BOLETAS} números por reserva`, 'error');
         return;
       }
+      const boleta = state.boletas.find((b) => b.id === boletaId);
+      const principal = Number.isFinite(displayedNumber)
+        ? displayedNumber
+        : Number(boleta?.numero);
+      state.primaryNumberById.set(boletaId, principal);
       state.selectedIds.add(boletaId);
+      if (boleta) showGiftNotice(boleta, principal);
     }
     renderGrid($('buscar-numero')?.value || '');
     updateSelectionUI();
@@ -497,6 +632,7 @@
   function removeBoleta(boletaId) {
     if (!state.selectedIds.has(boletaId)) return;
     state.selectedIds.delete(boletaId);
+    state.primaryNumberById.delete(boletaId);
     renderGrid($('buscar-numero')?.value || '');
     updateSelectionUI();
     toast('Número quitado de tu compra');
@@ -511,29 +647,31 @@
     const btn = $('btn-continuar');
     const chips = $('seleccion-chips');
     const empty = $('seleccion-empty');
+    const giftNotice = $('regalo-notice');
 
     if (countEl) countEl.textContent = String(count);
     if (totalEl) totalEl.textContent = `Total ${formatMoney(count * precio)}`;
     if (btn) btn.disabled = count === 0;
+    if (giftNotice && count === 0) giftNotice.classList.add('hidden');
 
     const selected = state.boletas.filter((b) => state.selectedIds.has(b.id));
     if (numsEl) {
       numsEl.textContent = selected.length
-        ? selected.map(formatPair).join('  ·  ')
-        : 'Ninguna pacha seleccionada';
+        ? selected.map(formatSelectedPair).join('  ·  ')
+        : 'Ningún número seleccionado';
     }
 
     if (chips) {
       if (!selected.length) {
         chips.innerHTML =
-          '<p class="seleccion-empty" id="seleccion-empty">Aún no hay pachas en tu compra</p>';
+          '<p class="seleccion-empty" id="seleccion-empty">Aún no hay números en tu compra</p>';
       } else {
         chips.innerHTML = selected
           .map(
             (b) => `
           <span class="chip-removable">
-            ${escapeHtml(formatPair(b))}
-            <button type="button" data-remove="${b.id}" aria-label="Quitar ${escapeHtml(formatPair(b))}">×</button>
+            ${escapeHtml(formatSelectedPair(b))}
+            <button type="button" data-remove="${b.id}" aria-label="Quitar ${escapeHtml(formatSelectedPair(b))}">×</button>
           </span>`
           )
           .join('');
@@ -557,7 +695,7 @@
       return;
     }
     if (state.selectedIds.size >= MAX_BOLETAS) {
-      toast(`Máximo ${MAX_BOLETAS} pachas por reserva`, 'error');
+      toast(`Máximo ${MAX_BOLETAS} números por reserva`, 'error');
       return;
     }
     if (!disponiblesParaRuleta().length) {
@@ -572,7 +710,7 @@
     document.body.style.overflow = 'hidden';
     $('ruleta-display').textContent = '————';
     $('ruleta-display')?.classList.remove('is-spinning', 'is-winner');
-    $('ruleta-status').textContent = 'Gira para elegir una pacha al azar';
+    $('ruleta-status').textContent = 'Gira para elegir un número al azar';
     $('ruleta-actions-spin')?.classList.remove('hidden');
     $('ruleta-actions-result')?.classList.add('hidden');
 
@@ -596,12 +734,12 @@
     const display = $('ruleta-display');
     const status = $('ruleta-status');
     if (display) {
-      display.textContent = formatPair(candidate);
+      display.textContent = `#${padNum(candidate.numero)}`;
       display.classList.remove('is-spinning');
       display.classList.add('is-winner');
     }
     if (status) {
-      status.textContent = `Resultado: ${formatPair(candidate)}`;
+      status.textContent = 'Selecciónalo y descubre el número que te regalamos.';
     }
     $('ruleta-actions-spin')?.classList.add('hidden');
     $('ruleta-actions-result')?.classList.remove('hidden');
@@ -616,7 +754,7 @@
       return;
     }
     if (state.selectedIds.size >= MAX_BOLETAS) {
-      toast(`Máximo ${MAX_BOLETAS} pachas por reserva`, 'error');
+      toast(`Máximo ${MAX_BOLETAS} números por reserva`, 'error');
       return;
     }
 
@@ -642,7 +780,7 @@
       ticks += 1;
       const sample = pool[Math.floor(Math.random() * pool.length)];
       if (display) {
-        display.textContent = formatPair(sample);
+        display.textContent = `#${padNum(sample.numero)}`;
         display.style.transform = `translateY(${ticks % 2 === 0 ? -5 : 5}px) scale(${1 + (ticks % 3) * 0.01})`;
       }
 
@@ -669,7 +807,7 @@
     const candidate = state.ruleta.candidate;
     if (!candidate || state.ruleta.spinning) return;
     if (state.selectedIds.size >= MAX_BOLETAS) {
-      toast(`Máximo ${MAX_BOLETAS} pachas por reserva`, 'error');
+      toast(`Máximo ${MAX_BOLETAS} números por reserva`, 'error');
       return;
     }
     if (!disponiblesParaRuleta().some((b) => b.id === candidate.id)) {
@@ -677,10 +815,11 @@
       girarRuleta();
       return;
     }
+    state.primaryNumberById.set(candidate.id, Number(candidate.numero));
     state.selectedIds.add(candidate.id);
     renderGrid($('buscar-numero')?.value || '');
     updateSelectionUI();
-    toast(`Seleccionado: ${formatPair(candidate)}`, 'ok');
+    showGiftNotice(candidate, Number(candidate.numero));
     closeRuleta();
   }
 
@@ -714,7 +853,7 @@
       startTimer();
       showPaso('formulario');
       renderChips(blocked);
-      toast('Pachas bloqueadas. Completa tus datos.', 'ok');
+      toast('Números reservados. Completa tus datos.', 'ok');
     } catch (err) {
       toast(err.message, 'error');
       await seleccionarRifa(state.rifa.id);
@@ -733,7 +872,7 @@
       ? boletas
       : state.boletas.filter((b) => state.selectedIds.has(b.id));
     box.innerHTML = list
-      .map((b) => `<span class="chip">${escapeHtml(formatPair(b))}</span>`)
+      .map((b) => `<span class="chip">${escapeHtml(formatSelectedPair(b))}</span>`)
       .join('');
   }
 
@@ -853,7 +992,7 @@
       $('exito-detalle').innerHTML = `
         <p><strong>Cliente:</strong> ${escapeHtml(payload.cliente.nombre)}</p>
         <p><strong>Teléfono:</strong> ${escapeHtml(payload.cliente.telefono)}</p>
-        <p><strong>Pachas:</strong> ${escapeHtml(nums || '—')}</p>
+        <p><strong>Números:</strong> ${escapeHtml(nums || '—')}</p>
         <p><strong>Total:</strong> ${formatMoney(data.monto_total || 0)}</p>
         <p>Estado: pendiente de pago. Paga con Wompi para descargar al instante.</p>
       `;
@@ -922,8 +1061,12 @@
   document.querySelectorAll('[data-ruleta-close]').forEach((el) => {
     el.addEventListener('click', closeRuleta);
   });
+  document.querySelectorAll('[data-regalo-close]').forEach((el) => {
+    el.addEventListener('click', hideGiftOverlay);
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.ruleta.open) closeRuleta();
+    if (e.key === 'Escape') hideGiftOverlay();
   });
 
   window.addEventListener('beforeunload', () => {
