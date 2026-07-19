@@ -314,6 +314,15 @@ code {
   filter: brightness(1.2);
 }
 
+.premio-media.premio-media-iphone img {
+  object-fit: contain;
+  object-position: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(243, 196, 93, 0.2), transparent 58%),
+    #050505;
+}
+
 .premio-cash {
   font-family: var(--font-mega);
   font-size: clamp(3.5rem, 10vw, 5rem);
@@ -482,12 +491,15 @@ code {
   border: 0;
   overflow: hidden;
   min-height: 320px;
+  isolation: isolate;
 }
 
-.about-visual img {
+.about-main-image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   min-height: 360px;
   filter: contrast(1.05);
 }
@@ -496,6 +508,8 @@ code {
   position: absolute;
   inset: auto 6% 12% auto;
   width: 42%;
+  height: auto;
+  min-height: 0;
   opacity: 0.35;
   mix-blend-mode: screen;
   pointer-events: none;
@@ -519,8 +533,12 @@ code {
 }
 
 .about-stamp img {
+  display: block;
   width: 28px;
   height: auto;
+  min-height: 0;
+  object-fit: contain;
+  filter: none;
 }
 
 /* ─── Team ──────────────────────────────────────────── */
@@ -553,7 +571,8 @@ code {
 
 .team-photo {
   position: relative;
-  min-height: 340px;
+  min-height: 0;
+  aspect-ratio: 4 / 5;
   background: #0a0a0a;
   border-bottom: 1px solid rgba(223, 206, 174, 0.12);
 }
@@ -564,6 +583,7 @@ code {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 28%;
   z-index: 2;
 }
 
@@ -685,6 +705,15 @@ code {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.frame.frame-iphone {
+  background: #000;
+}
+
+.frame.frame-iphone img {
+  object-fit: cover;
+  object-position: center 42%;
 }
 
 .frame::after {
